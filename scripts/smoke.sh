@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-IMAGE=ubuntu-xrdp-lxqt:test
+# Smoke tests run in an isolated compose project on a non-default host
+# port so they don't collide with a real xrdp on the host or with the
+# user's own `docker compose up`.
+export COMPOSE_PROJECT_NAME=ubuntu-xrdp-lxqt-smoke
+export HOST_RDP_PORT=13389
+
 CID=""
 KEEP=0
 for arg in "$@"; do
@@ -11,28 +16,30 @@ for arg in "$@"; do
 done
 
 cleanup() {
-  if [[ -n "$CID" && $KEEP -eq 0 ]]; then
-    docker rm -f "$CID" >/dev/null 2>&1 || true
+  if [[ $KEEP -eq 0 ]]; then
+    docker compose down -v >/dev/null 2>&1 || true
   fi
 }
 trap cleanup EXIT
 
-echo "==> docker build"
-docker build -t "$IMAGE" .
-
-echo "OK: build succeeded"
-
-echo "==> docker run"
-CID=$(docker run -d --rm -p 13389:3389 "$IMAGE")
+echo "==> docker compose up"
+docker compose down -v >/dev/null 2>&1 || true
+docker compose up -d --build
 
 echo "==> assert container is running"
 sleep 2
-if [[ "$(docker inspect -f '{{.State.Running}}' "$CID" 2>/dev/null)" != "true" ]]; then
-  echo "FAIL: container exited immediately" >&2
-  docker logs "$CID" >&2 || true
+CID=$(docker compose ps -q desktop)
+if [[ -z "$CID" ]]; then
+  echo "FAIL: no desktop container from compose" >&2
+  docker compose logs >&2 || true
   exit 1
 fi
-echo "OK: container is running"
+if [[ "$(docker inspect -f '{{.State.Running}}' "$CID" 2>/dev/null)" != "true" ]]; then
+  echo "FAIL: container exited immediately" >&2
+  docker compose logs >&2 || true
+  exit 1
+fi
+echo "OK: container is running ($CID)"
 
 echo "==> wait for xrdp process to appear inside the container"
 for i in $(seq 1 30); do
@@ -42,18 +49,18 @@ for i in $(seq 1 30); do
   fi
   if [[ $i -eq 30 ]]; then
     echo "FAIL: xrdp process never appeared within 30s" >&2
-    docker logs "$CID" >&2 || true
+    docker compose logs >&2 || true
     exit 1
   fi
   sleep 1
 done
 
-echo "==> assert host can reach xrdp on 3389"
-if ! (echo > /dev/tcp/127.0.0.1/13389) >/dev/null 2>&1; then
-  echo "FAIL: cannot reach xrdp on host port 13389" >&2
+echo "==> assert host can reach xrdp on $HOST_RDP_PORT"
+if ! (echo > /dev/tcp/127.0.0.1/"$HOST_RDP_PORT") >/dev/null 2>&1; then
+  echo "FAIL: cannot reach xrdp on host port $HOST_RDP_PORT" >&2
   exit 1
 fi
-echo "OK: xrdp reachable at 127.0.0.1:13389"
+echo "OK: xrdp reachable at 127.0.0.1:$HOST_RDP_PORT"
 
 echo "==> assert user exists with expected shell and sudo"
 docker exec "$CID" id ubuntu >/dev/null
@@ -88,9 +95,6 @@ echo "OK: LXQt + dev tools + no locker/screensaver"
 echo "==> assert Firefox from Mozilla APT repo"
 docker exec "$CID" sh -c 'command -v firefox >/dev/null' \
   || { echo "FAIL: firefox missing" >&2; exit 1; }
-# dpkg metadata is stable even after apt lists are cleaned; the Mozilla-repo
-# firefox package identifies itself as maintained by Mozilla, while the
-# Ubuntu snap-transitional stub would show Ubuntu's Mozilla team instead.
 docker exec "$CID" dpkg -s firefox | grep -q '^Maintainer: Mozilla <release@mozilla.com>' \
   || { echo "FAIL: firefox is not the Mozilla-maintained package" >&2; \
        docker exec "$CID" dpkg -s firefox | grep -E '^(Maintainer|Version)' >&2; \
@@ -98,3 +102,13 @@ docker exec "$CID" dpkg -s firefox | grep -q '^Maintainer: Mozilla <release@mozi
 docker exec "$CID" test -f /etc/apt/sources.list.d/mozilla.list \
   || { echo "FAIL: Mozilla apt source missing" >&2; exit 1; }
 echo "OK: firefox from Mozilla APT repo"
+
+echo "==> assert home volume and shm_size"
+docker exec "$CID" sh -c 'stat -c %m /home' | grep -q '^/home$' \
+  || { echo "FAIL: /home is not its own mount point" >&2; exit 1; }
+SHM_BYTES=$(docker exec "$CID" sh -c 'df -B1 /dev/shm | awk "NR==2 {print \$2}"')
+if [[ -z "$SHM_BYTES" || "$SHM_BYTES" -lt 1000000000 ]]; then
+  echo "FAIL: /dev/shm smaller than 1GB (got $SHM_BYTES bytes)" >&2
+  exit 1
+fi
+echo "OK: home volume mounted, shm=${SHM_BYTES} bytes"

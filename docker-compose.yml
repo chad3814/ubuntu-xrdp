@@ -1,0 +1,16 @@
+services:
+  desktop:
+    build: .
+    image: ubuntu-xrdp-lxqt:local
+    ports:
+      - "${HOST_RDP_PORT:-3389}:3389"
+    environment:
+      USER: ubuntu
+      PASSWORD: ubuntu
+    volumes:
+      - home:/home
+    shm_size: "1gb"
+    restart: unless-stopped
+
+volumes:
+  home: {}
