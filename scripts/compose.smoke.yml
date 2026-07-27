@@ -1,0 +1,5 @@
+# Overrides applied only by scripts/smoke.sh so it can run alongside a
+# real `docker compose up` without name/port collisions.
+services:
+  desktop:
+    container_name: desktop-smoke

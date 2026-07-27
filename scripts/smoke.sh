@@ -17,26 +17,28 @@ done
 
 cleanup() {
   if [[ $KEEP -eq 0 ]]; then
-    docker compose down -v >/dev/null 2>&1 || true
+    "${COMPOSE[@]}" down -v >/dev/null 2>&1 || true
   fi
 }
 trap cleanup EXIT
 
+COMPOSE=(docker compose -f docker-compose.yml -f scripts/compose.smoke.yml)
+
 echo "==> docker compose up"
-docker compose down -v >/dev/null 2>&1 || true
-docker compose up -d --build
+"${COMPOSE[@]}" down -v >/dev/null 2>&1 || true
+"${COMPOSE[@]}" up -d --build
 
 echo "==> assert container is running"
 sleep 2
-CID=$(docker compose ps -q desktop)
+CID=$("${COMPOSE[@]}" ps -q desktop)
 if [[ -z "$CID" ]]; then
   echo "FAIL: no desktop container from compose" >&2
-  docker compose logs >&2 || true
+  "${COMPOSE[@]}" logs >&2 || true
   exit 1
 fi
 if [[ "$(docker inspect -f '{{.State.Running}}' "$CID" 2>/dev/null)" != "true" ]]; then
   echo "FAIL: container exited immediately" >&2
-  docker compose logs >&2 || true
+  "${COMPOSE[@]}" logs >&2 || true
   exit 1
 fi
 echo "OK: container is running ($CID)"
@@ -49,7 +51,7 @@ for i in $(seq 1 30); do
   fi
   if [[ $i -eq 30 ]]; then
     echo "FAIL: xrdp process never appeared within 30s" >&2
-    docker compose logs >&2 || true
+    "${COMPOSE[@]}" logs >&2 || true
     exit 1
   fi
   sleep 1
@@ -82,6 +84,12 @@ echo "OK: xrdp cert regenerated (packaged=$PACKAGED_FP current=$CURRENT_FP)"
 echo "==> assert LXQt + dev tools"
 docker exec "$CID" sh -c 'command -v startlxqt >/dev/null' \
   || { echo "FAIL: startlxqt missing" >&2; exit 1; }
+# LXQt is only a desktop shell; it needs an X window manager to actually
+# run. lxqt-core Recommends openbox, but we build --no-install-recommends,
+# so we install openbox explicitly. Without it, first-connect prompts the
+# user to pick a WM from an empty list.
+docker exec "$CID" sh -c 'command -v openbox >/dev/null' \
+  || { echo "FAIL: openbox (X window manager) missing" >&2; exit 1; }
 for tool in git curl wget vim nano gcc python3 pip3 ssh; do
   docker exec "$CID" sh -c "command -v $tool >/dev/null" \
     || { echo "FAIL: $tool missing" >&2; exit 1; }
