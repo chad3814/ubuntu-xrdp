@@ -90,6 +90,21 @@ docker exec "$CID" sh -c 'command -v startlxqt >/dev/null' \
 # user to pick a WM from an empty list.
 docker exec "$CID" sh -c 'command -v openbox >/dev/null' \
   || { echo "FAIL: openbox (X window manager) missing" >&2; exit 1; }
+# lxqt-core Recommends breeze-icon-theme; without recommends the panel and
+# menus render with blank icons. hicolor is the base fallback theme.
+for theme in breeze hicolor Adwaita; do
+  docker exec "$CID" test -d "/usr/share/icons/$theme" \
+    || { echo "FAIL: icon theme $theme missing" >&2; exit 1; }
+done
+# Curated LXQt extras that Recommends would normally pull in; without
+# them the desktop feels half-installed (no notifications, no launcher,
+# no gvfs, etc.).
+for pkg in lxqt-notificationd lxqt-qtplugin lxqt-runner lxqt-about lxqt-sudo \
+           lxqt-powermanagement \
+           gvfs-backends gvfs-fuse ffmpegthumbnailer qt6-image-formats-plugins; do
+  docker exec "$CID" dpkg -s "$pkg" >/dev/null 2>&1 \
+    || { echo "FAIL: $pkg missing" >&2; exit 1; }
+done
 for tool in git curl wget vim nano gcc python3 pip3 ssh; do
   docker exec "$CID" sh -c "command -v $tool >/dev/null" \
     || { echo "FAIL: $tool missing" >&2; exit 1; }

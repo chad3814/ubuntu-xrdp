@@ -21,11 +21,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       lxqt-core lxqt-config lxqt-panel lxqt-policykit \
       openbox \
       pcmanfm-qt qterminal lximage-qt \
+      breeze-icon-theme hicolor-icon-theme adwaita-icon-theme \
       fonts-dejavu fonts-liberation fonts-noto-core \
       build-essential git curl wget vim nano \
       openssh-client python3 python3-pip \
     && apt-get purge -y light-locker xscreensaver 2>/dev/null || true \
     && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
+# lxqt-branding-debian is skipped: it conflicts with lxqt-panel by
+# shipping the same /etc/xdg/lxqt/panel.conf. Drop a wallpaper into
+# /usr/share/wallpapers manually if you want branding.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      lxqt-notificationd lxqt-qtplugin lxqt-runner lxqt-about lxqt-sudo \
+      lxqt-powermanagement \
+      gvfs-backends gvfs-fuse ffmpegthumbnailer qt6-image-formats-plugins \
     && rm -rf /var/lib/apt/lists/*
 
 RUN install -d -m 0755 /etc/apt/keyrings && \
