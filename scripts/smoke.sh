@@ -84,3 +84,17 @@ docker exec "$CID" sh -c '! dpkg -s light-locker >/dev/null 2>&1' \
 docker exec "$CID" sh -c '! dpkg -s xscreensaver >/dev/null 2>&1' \
   || { echo "FAIL: xscreensaver is installed" >&2; exit 1; }
 echo "OK: LXQt + dev tools + no locker/screensaver"
+
+echo "==> assert Firefox from Mozilla APT repo"
+docker exec "$CID" sh -c 'command -v firefox >/dev/null' \
+  || { echo "FAIL: firefox missing" >&2; exit 1; }
+# dpkg metadata is stable even after apt lists are cleaned; the Mozilla-repo
+# firefox package identifies itself as maintained by Mozilla, while the
+# Ubuntu snap-transitional stub would show Ubuntu's Mozilla team instead.
+docker exec "$CID" dpkg -s firefox | grep -q '^Maintainer: Mozilla <release@mozilla.com>' \
+  || { echo "FAIL: firefox is not the Mozilla-maintained package" >&2; \
+       docker exec "$CID" dpkg -s firefox | grep -E '^(Maintainer|Version)' >&2; \
+       exit 1; }
+docker exec "$CID" test -f /etc/apt/sources.list.d/mozilla.list \
+  || { echo "FAIL: Mozilla apt source missing" >&2; exit 1; }
+echo "OK: firefox from Mozilla APT repo"

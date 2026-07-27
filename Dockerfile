@@ -27,6 +27,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
+RUN install -d -m 0755 /etc/apt/keyrings && \
+    curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg \
+      | tee /etc/apt/keyrings/packages.mozilla.org.asc >/dev/null && \
+    echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" \
+      > /etc/apt/sources.list.d/mozilla.list && \
+    printf 'Package: *\nPin: origin packages.mozilla.org\nPin-Priority: 1000\n' \
+      > /etc/apt/preferences.d/mozilla && \
+    apt-get update && apt-get install -y --no-install-recommends firefox && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN set -eux; \
     case "${TARGETARCH}" in \
       amd64) s6_arch=x86_64 ;; \
