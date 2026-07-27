@@ -34,7 +34,8 @@ COPY rootfs/ /
 RUN chmod +x /etc/xrdp/startwm.sh \
              /etc/s6-overlay/s6-rc.d/dbus/run \
              /etc/s6-overlay/s6-rc.d/xrdp-sesman/run \
-             /etc/s6-overlay/s6-rc.d/xrdp/run
+             /etc/s6-overlay/s6-rc.d/xrdp/run \
+             /etc/cont-init.d/01-user
 
 # Allow xrdp to read its cert/key
 RUN adduser xrdp ssl-cert || true

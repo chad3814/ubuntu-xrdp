@@ -54,3 +54,11 @@ if ! (echo > /dev/tcp/127.0.0.1/13389) >/dev/null 2>&1; then
   exit 1
 fi
 echo "OK: xrdp reachable at 127.0.0.1:13389"
+
+echo "==> assert user exists with expected shell and sudo"
+docker exec "$CID" id ubuntu >/dev/null
+docker exec "$CID" getent passwd ubuntu | grep -q ':/bin/bash$' \
+  || { echo "FAIL: ubuntu shell is not /bin/bash" >&2; exit 1; }
+docker exec "$CID" sudo -l -U ubuntu | grep -q 'NOPASSWD: ALL' \
+  || { echo "FAIL: ubuntu lacks passwordless sudo" >&2; exit 1; }
+echo "OK: user ubuntu has bash + passwordless sudo"

@@ -1,0 +1,32 @@
+#!/command/with-contenv sh
+set -eu
+
+USER="${USER:-ubuntu}"
+PASSWORD="${PASSWORD:-ubuntu}"
+SUDO="${SUDO:-yes}"
+TZ="${TZ:-}"
+
+if [ -n "$TZ" ]; then
+  echo "$TZ" > /etc/timezone
+  ln -sf "/usr/share/zoneinfo/$TZ" /etc/localtime
+fi
+
+if ! id "$USER" >/dev/null 2>&1; then
+  echo "creating user: $USER"
+  useradd --create-home --shell /bin/bash --user-group \
+          --groups audio,video "$USER"
+fi
+
+echo "$USER:$PASSWORD" | chpasswd
+
+if [ "$SUDO" = "yes" ]; then
+  usermod -aG sudo "$USER"
+  install -m 0440 /dev/stdin "/etc/sudoers.d/90-$USER" <<EOF
+$USER ALL=(ALL) NOPASSWD:ALL
+EOF
+else
+  rm -f "/etc/sudoers.d/90-$USER"
+  gpasswd -d "$USER" sudo >/dev/null 2>&1 || true
+fi
+
+chown -R "$USER:$USER" "/home/$USER"
