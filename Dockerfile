@@ -17,6 +17,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
          | cut -d= -f2 > /etc/xrdp/.packaged-cert-fingerprint \
     && rm -rf /var/lib/apt/lists/*
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      lxqt-core lxqt-config lxqt-panel lxqt-policykit \
+      pcmanfm-qt qterminal lximage-qt \
+      fonts-dejavu fonts-liberation fonts-noto-core \
+      build-essential git curl wget vim nano \
+      openssh-client python3 python3-pip \
+    && apt-get purge -y light-locker xscreensaver 2>/dev/null || true \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN set -eux; \
     case "${TARGETARCH}" in \
       amd64) s6_arch=x86_64 ;; \

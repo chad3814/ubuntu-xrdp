@@ -71,3 +71,16 @@ if [ "$PACKAGED_FP" = "$CURRENT_FP" ]; then
   exit 1
 fi
 echo "OK: xrdp cert regenerated (packaged=$PACKAGED_FP current=$CURRENT_FP)"
+
+echo "==> assert LXQt + dev tools"
+docker exec "$CID" sh -c 'command -v startlxqt >/dev/null' \
+  || { echo "FAIL: startlxqt missing" >&2; exit 1; }
+for tool in git curl wget vim nano gcc python3 pip3 ssh; do
+  docker exec "$CID" sh -c "command -v $tool >/dev/null" \
+    || { echo "FAIL: $tool missing" >&2; exit 1; }
+done
+docker exec "$CID" sh -c '! dpkg -s light-locker >/dev/null 2>&1' \
+  || { echo "FAIL: light-locker is installed" >&2; exit 1; }
+docker exec "$CID" sh -c '! dpkg -s xscreensaver >/dev/null 2>&1' \
+  || { echo "FAIL: xscreensaver is installed" >&2; exit 1; }
+echo "OK: LXQt + dev tools + no locker/screensaver"
