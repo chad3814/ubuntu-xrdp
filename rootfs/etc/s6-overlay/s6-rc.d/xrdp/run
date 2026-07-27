@@ -1,0 +1,5 @@
+#!/command/execlineb -P
+foreground { rm -rf /tmp/.X11-unix }
+foreground { mkdir -p /tmp/.X11-unix }
+foreground { chmod 1777 /tmp/.X11-unix }
+exec /usr/sbin/xrdp --nodaemon

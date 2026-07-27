@@ -1,0 +1,4 @@
+#!/command/execlineb -P
+foreground { mkdir -p /run/dbus }
+foreground { chmod 755 /run/dbus }
+exec dbus-daemon --system --nofork --nopidfile
