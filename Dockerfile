@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       dbus dbus-x11 \
       xrdp xorgxrdp \
       openssl sudo tzdata \
+    && openssl x509 -in /etc/xrdp/cert.pem -noout -fingerprint -sha256 \
+         | cut -d= -f2 > /etc/xrdp/.packaged-cert-fingerprint \
     && rm -rf /var/lib/apt/lists/*
 
 RUN set -eux; \
@@ -35,7 +37,8 @@ RUN chmod +x /etc/xrdp/startwm.sh \
              /etc/s6-overlay/s6-rc.d/dbus/run \
              /etc/s6-overlay/s6-rc.d/xrdp-sesman/run \
              /etc/s6-overlay/s6-rc.d/xrdp/run \
-             /etc/cont-init.d/01-user
+             /etc/cont-init.d/01-user \
+             /etc/cont-init.d/02-xrdp-cert
 
 # Allow xrdp to read its cert/key
 RUN adduser xrdp ssl-cert || true

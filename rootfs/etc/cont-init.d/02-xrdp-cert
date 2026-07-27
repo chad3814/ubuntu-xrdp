@@ -1,0 +1,26 @@
+#!/command/with-contenv sh
+set -eu
+
+CERT=/etc/xrdp/cert.pem
+KEY=/etc/xrdp/key.pem
+PKG_FP_FILE=/etc/xrdp/.packaged-cert-fingerprint
+
+need_regen=0
+if [ ! -s "$CERT" ] || [ ! -s "$KEY" ]; then
+  need_regen=1
+elif [ -r "$PKG_FP_FILE" ]; then
+  packaged=$(cat "$PKG_FP_FILE")
+  current=$(openssl x509 -in "$CERT" -noout -fingerprint -sha256 | cut -d= -f2)
+  if [ "$packaged" = "$current" ]; then
+    need_regen=1
+  fi
+fi
+
+if [ "$need_regen" -eq 1 ]; then
+  echo "generating fresh xrdp TLS cert"
+  openssl req -x509 -newkey rsa:4096 -sha256 -nodes -days 3650 \
+    -subj "/CN=ubuntu-xrdp-lxqt" \
+    -keyout "$KEY" -out "$CERT" >/dev/null 2>&1
+  chown xrdp:ssl-cert "$CERT" "$KEY"
+  chmod 640 "$CERT" "$KEY"
+fi

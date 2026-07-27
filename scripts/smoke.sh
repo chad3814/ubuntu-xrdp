@@ -62,3 +62,12 @@ docker exec "$CID" getent passwd ubuntu | grep -q ':/bin/bash$' \
 docker exec "$CID" sudo -l -U ubuntu | grep -q 'NOPASSWD: ALL' \
   || { echo "FAIL: ubuntu lacks passwordless sudo" >&2; exit 1; }
 echo "OK: user ubuntu has bash + passwordless sudo"
+
+echo "==> assert xrdp cert is not the packaged default"
+PACKAGED_FP=$(docker exec "$CID" cat /etc/xrdp/.packaged-cert-fingerprint)
+CURRENT_FP=$(docker exec "$CID" openssl x509 -in /etc/xrdp/cert.pem -noout -fingerprint -sha256 | cut -d= -f2)
+if [ "$PACKAGED_FP" = "$CURRENT_FP" ]; then
+  echo "FAIL: xrdp cert fingerprint matches packaged default" >&2
+  exit 1
+fi
+echo "OK: xrdp cert regenerated (packaged=$PACKAGED_FP current=$CURRENT_FP)"
